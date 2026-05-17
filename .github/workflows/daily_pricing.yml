@@ -1,0 +1,65 @@
+# ════════════════════════════════════════════════════════════════
+# InnAgent AI — Daily Pricing Check
+# Runs at 6:00 AM Sri Lanka Time (00:30 UTC)
+# ════════════════════════════════════════════════════════════════
+
+name: Daily Pricing Check
+
+on:
+  schedule:
+    - cron: "30 0 * * *"
+  workflow_dispatch:
+
+jobs:
+  pricing-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Run Pricing Check for All Hotels
+        env:
+          INNAGENT_API_URL: ${{ secrets.INNAGENT_API_URL }}
+          INNAGENT_API_KEY: ${{ secrets.INNAGENT_API_KEY }}
+        run: |
+          python -c "
+          import requests, os, sys
+
+          api_url = os.environ.get('INNAGENT_API_URL', 'http://localhost:8000')
+          api_key = os.environ.get('INNAGENT_API_KEY', '')
+
+          headers = {'Content-Type': 'application/json', 'X-API-Key': api_key}
+
+          # Get all active hotels
+          try:
+              hotels_resp = requests.get(f'{api_url}/hotels/', headers=headers, timeout=30)
+              hotels = hotels_resp.json().get('hotels', [])
+              print(f'Found {len(hotels)} active hotels')
+          except Exception as e:
+              print(f'Failed to fetch hotels: {e}')
+              sys.exit(1)
+
+          # Run pricing check for each hotel
+          for hotel in hotels:
+              try:
+                  payload = {
+                      'task': 'daily_pricing_check',
+                      'hotel_id': hotel['id'],
+                      'context': {'trigger': 'github_actions', 'job': 'daily_pricing'}
+                  }
+                  resp = requests.post(f'{api_url}/agent/run', json=payload, headers=headers, timeout=60)
+                  result = resp.json()
+                  print(f\"✅ {hotel['name']}: {result.get('action_taken', 'done')} (confidence: {result.get('confidence', 0)})\")
+              except Exception as e:
+                  print(f\"❌ {hotel['name']}: {e}\")
+
+          print('Daily pricing check complete.')
+          "

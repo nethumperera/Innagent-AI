@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Sidebar from "@/components/layout/Sidebar";
 import Header from "@/components/layout/Header";
 import MobileNav from "@/components/layout/MobileNav";
@@ -8,28 +8,20 @@ import ConversationList from "@/components/guests/ConversationList";
 import MessageBubble from "@/components/guests/MessageBubble";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
-import { MessageSquare } from "lucide-react";
-import type { Hotel } from "@/lib/types";
-
-const DEMO_HOTELS: Hotel[] = [
-  { id: "demo-1", name: "Kandy Heritage Villa", slug: "kandy-heritage-villa", city: "Kandy", total_rooms: 12, minimum_rate_lkr: 8000, amenities: [], is_active: true, created_at: "", updated_at: "" },
-];
-
-const DEMO_CONVERSATIONS = [
-  { guest_phone: "+44789012345", guest_name: "James Wilson", last_message: "Hi, do you have rooms available for Dec 25-28?", language: "english", timestamp: new Date(Date.now() - 1800000).toISOString(), unread: true },
-  { guest_phone: "+94771234567", guest_name: undefined, last_message: "කරුණාකර මිල ගණන් දැනුම් දෙන්න", language: "sinhala", timestamp: new Date(Date.now() - 7200000).toISOString(), unread: false },
-  { guest_phone: "+61412345678", guest_name: "Sarah Chen", last_message: "What time is check-in? And do you have airport transfers?", language: "english", timestamp: new Date(Date.now() - 14400000).toISOString(), unread: false },
-];
-
-const DEMO_MESSAGES = [
-  { message: "Hi, do you have rooms available for December 25-28?", timestamp: new Date(Date.now() - 1800000).toISOString(), direction: "inbound" as const, language: "english" },
-  { message: "Hello James! Thank you for reaching out to Kandy Heritage Villa! 🏨\n\nYes, we do have availability for December 25-28. Here are our options:\n\n• Standard Double — LKR 19,200/night + 12% VAT\n• Deluxe King — LKR 28,800/night + 12% VAT\n• Heritage Suite — LKR 44,800/night + 12% VAT\n\nPlease note these are our Christmas/New Year rates (peak season pricing applies).\n\nWould you like me to make a reservation?\n\nKandy Heritage Villa\nManaged by Co Host Ceylon | Powered by InnAgent AI", timestamp: new Date(Date.now() - 1700000).toISOString(), direction: "outbound" as const, agentUsed: "guest_bot" },
-  { message: "The Deluxe King sounds perfect! Can I also book an airport transfer from Colombo?", timestamp: new Date(Date.now() - 1600000).toISOString(), direction: "inbound" as const, language: "english" },
-];
+import { MessageSquare, Loader2 } from "lucide-react";
+import type { Hotel, Conversation } from "@/lib/types";
+import { fetchHotels, fetchConversations, fetchConversationThread } from "@/lib/api";
 
 export default function GuestsPage() {
-  const [selectedHotel] = useState<Hotel>(DEMO_HOTELS[0]);
-  const [selectedPhone, setSelectedPhone] = useState(DEMO_CONVERSATIONS[0].guest_phone);
+  const [hotels, setHotels] = useState<Hotel[]>([]);
+  const [selectedHotel, setSelectedHotel] = useState<Hotel | null>(null);
+  
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [selectedPhone, setSelectedPhone] = useState<string | null>(null);
+  const [messages, setMessages] = useState<any[]>([]);
+  
+  const [loadingConv, setLoadingConv] = useState(true);
+  const [loadingMessages, setLoadingMessages] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
 
   const toggleDarkMode = () => {
@@ -37,15 +29,67 @@ export default function GuestsPage() {
     document.documentElement.classList.toggle("dark");
   };
 
+  // Initial Load: Fetch Hotels
+  useEffect(() => {
+    fetchHotels().then((data) => {
+      setHotels(data);
+      if (data.length > 0) {
+        setSelectedHotel(data[0]);
+      } else {
+        setLoadingConv(false);
+      }
+    });
+  }, []);
+
+  // Fetch conversations when hotel changes
+  useEffect(() => {
+    if (!selectedHotel) return;
+    setLoadingConv(true);
+    fetchConversations(selectedHotel.id).then((data) => {
+      setConversations(data);
+      setLoadingConv(false);
+      // Auto-select first conversation
+      if (data.length > 0 && !selectedPhone) {
+        setSelectedPhone(data[0].guest_phone);
+      }
+    });
+  }, [selectedHotel]);
+
+  // Fetch thread when conversation is selected
+  useEffect(() => {
+    if (!selectedHotel || !selectedPhone) return;
+    setLoadingMessages(true);
+    
+    // Poll every 5 seconds for new messages
+    const fetchThread = () => {
+      fetchConversationThread(selectedHotel.id, selectedPhone).then((data) => {
+        setMessages(data);
+        setLoadingMessages(false);
+      });
+    };
+    
+    fetchThread();
+    const interval = setInterval(fetchThread, 5000);
+    return () => clearInterval(interval);
+  }, [selectedHotel, selectedPhone]);
+
+  if (!selectedHotel) {
+    return (
+      <div className="flex min-h-screen bg-background dark:bg-gray-950 items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary-500" />
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen bg-background dark:bg-gray-950">
       <Sidebar />
       <div className="flex-1 lg:ml-64">
-        <Header hotels={DEMO_HOTELS} selectedHotel={selectedHotel} onSelectHotel={() => {}} darkMode={darkMode} onToggleDarkMode={toggleDarkMode} />
+        <Header hotels={hotels} selectedHotel={selectedHotel} onSelectHotel={setSelectedHotel} darkMode={darkMode} onToggleDarkMode={toggleDarkMode} />
         <main className="p-4 md:p-6 lg:p-8 pb-24 lg:pb-8">
           <div className="mb-6">
             <h1 className="text-2xl font-bold text-foreground dark:text-white">Guest Messages</h1>
-            <p className="text-sm text-muted mt-1">WhatsApp conversations managed by InnAgent AI</p>
+            <p className="text-sm text-muted mt-1">Live WhatsApp conversations managed by InnAgent AI</p>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-220px)]">
@@ -55,15 +99,21 @@ export default function GuestsPage() {
                 <div className="flex items-center gap-2">
                   <MessageSquare className="w-4 h-4 text-primary-500" />
                   <span className="text-sm font-semibold text-foreground dark:text-white">Conversations</span>
-                  <Badge variant="info" size="sm">{DEMO_CONVERSATIONS.length}</Badge>
+                  <Badge variant="info" size="sm">{conversations.length}</Badge>
                 </div>
               </div>
               <div className="p-2">
-                <ConversationList
-                  conversations={DEMO_CONVERSATIONS}
-                  selectedPhone={selectedPhone}
-                  onSelect={setSelectedPhone}
-                />
+                {loadingConv ? (
+                  <div className="flex justify-center p-8"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
+                ) : conversations.length === 0 ? (
+                  <div className="text-center p-8 text-muted text-sm">No conversations found.</div>
+                ) : (
+                  <ConversationList
+                    conversations={conversations}
+                    selectedPhone={selectedPhone || ""}
+                    onSelect={setSelectedPhone}
+                  />
+                )}
               </div>
             </Card>
 
@@ -73,24 +123,33 @@ export default function GuestsPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-semibold text-foreground dark:text-white">
-                      {DEMO_CONVERSATIONS.find(c => c.guest_phone === selectedPhone)?.guest_name || selectedPhone}
+                      {conversations.find(c => c.guest_phone === selectedPhone)?.guest_name || selectedPhone || "Select a chat"}
                     </p>
                     <p className="text-xs text-muted">{selectedPhone}</p>
                   </div>
-                  <Badge variant="success" size="sm">AI Handled</Badge>
+                  {selectedPhone && <Badge variant="success" size="sm">Live Feed</Badge>}
                 </div>
               </div>
-              <div className="flex-1 overflow-y-auto p-4">
-                {DEMO_MESSAGES.map((msg, i) => (
-                  <MessageBubble
-                    key={i}
-                    message={msg.message}
-                    timestamp={msg.timestamp}
-                    direction={msg.direction}
-                    agentUsed={msg.direction === "outbound" ? "guest_bot" : undefined}
-                    language={msg.direction === "inbound" ? "english" : undefined}
-                  />
-                ))}
+              
+              <div className="flex-1 overflow-y-auto p-4 flex flex-col-reverse">
+                {/* flex-col-reverse handles the scrolling to bottom automatically if we reverse the array, 
+                    but since our DB order is oldest first, we render normally and rely on the UI */}
+                <div className="space-y-4">
+                  {loadingMessages && messages.length === 0 ? (
+                    <div className="flex justify-center p-8"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
+                  ) : (
+                    messages.map((msg, i) => (
+                      <MessageBubble
+                        key={msg.id || i}
+                        message={msg.message_body}
+                        timestamp={msg.created_at}
+                        direction={msg.direction}
+                        agentUsed={msg.agent_used}
+                        language={msg.language}
+                      />
+                    ))
+                  )}
+                </div>
               </div>
             </Card>
           </div>

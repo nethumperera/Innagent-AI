@@ -10,6 +10,7 @@ from backend.database import (
     get_hotel_by_id, get_occupancy_for_date, get_open_ticket_count,
     get_latest_metrics, get_metrics_range, get_recent_agent_logs,
     get_tickets_by_hotel, get_rooms_by_hotel,
+    get_conversations_by_hotel, get_conversation_thread
 )
 from backend.utils.logger import get_logger
 
@@ -112,4 +113,45 @@ async def get_recent_activity(
         return {"activity": logs, "count": len(logs)}
     except Exception as e:
         logger.error(f"Activity error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/conversations/{hotel_id}")
+async def get_hotel_conversations(hotel_id: str):
+    """Get unique guest conversations and their latest message."""
+    try:
+        messages = get_conversations_by_hotel(hotel_id, limit=100)
+        
+        # Group by phone number
+        conversations_dict = {}
+        for msg in messages:
+            phone = msg["guest_phone"]
+            if phone not in conversations_dict:
+                conversations_dict[phone] = {
+                    "guest_phone": phone,
+                    "guest_name": msg.get("guest_name"),
+                    "last_message": msg["message_body"],
+                    "language": msg.get("language", "english"),
+                    "timestamp": msg["created_at"],
+                    "unread": False,  # Simplified for prototype
+                }
+                
+        # Convert to list and sort by timestamp
+        conversations_list = list(conversations_dict.values())
+        conversations_list.sort(key=lambda x: x["timestamp"], reverse=True)
+        
+        return {"conversations": conversations_list}
+    except Exception as e:
+        logger.error(f"Conversations error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/conversations/{hotel_id}/{guest_phone}")
+async def get_guest_thread(hotel_id: str, guest_phone: str):
+    """Get the full message thread for a specific guest."""
+    try:
+        messages = get_conversation_thread(hotel_id, guest_phone)
+        return {"messages": messages}
+    except Exception as e:
+        logger.error(f"Conversation thread error: {e}")
         raise HTTPException(status_code=500, detail=str(e))

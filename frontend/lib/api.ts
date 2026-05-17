@@ -77,8 +77,19 @@ export async function reviewAction(reviewId: string, action: string, editedRespo
 
 export async function fetchConversations(hotelId: string): Promise<Conversation[]> {
   try {
-    const res = await api.get(`/dashboard/activity`, { params: { hotel_id: hotelId, limit: 50 } });
-    return res.data.activity || [];
+    const res = await api.get(`/dashboard/conversations/${hotelId}`);
+    return res.data.conversations || [];
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchConversationThread(hotelId: string, guestPhone: string) {
+  try {
+    // URL encode the phone number to handle the + sign properly
+    const encodedPhone = encodeURIComponent(guestPhone);
+    const res = await api.get(`/dashboard/conversations/${hotelId}/${encodedPhone}`);
+    return res.data.messages || [];
   } catch {
     return [];
   }

@@ -118,6 +118,15 @@ export interface Conversation {
   created_at: string;
 }
 
+export interface ConversationItem {
+  guest_phone: string;
+  guest_name?: string;
+  last_message: string;
+  language: string;
+  timestamp: string;
+  unread?: boolean;
+}
+
 export interface Review {
   id: string;
   hotel_id: string;

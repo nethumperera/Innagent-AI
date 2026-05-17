@@ -9,14 +9,14 @@ import MessageBubble from "@/components/guests/MessageBubble";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import { MessageSquare, Loader2 } from "lucide-react";
-import type { Hotel, Conversation } from "@/lib/types";
+import type { Hotel, ConversationItem } from "@/lib/types";
 import { fetchHotels, fetchConversations, fetchConversationThread } from "@/lib/api";
 
 export default function GuestsPage() {
   const [hotels, setHotels] = useState<Hotel[]>([]);
   const [selectedHotel, setSelectedHotel] = useState<Hotel | null>(null);
   
-  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [conversations, setConversations] = useState<ConversationItem[]>([]);
   const [selectedPhone, setSelectedPhone] = useState<string | null>(null);
   const [messages, setMessages] = useState<any[]>([]);
   

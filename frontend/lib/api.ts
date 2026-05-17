@@ -5,7 +5,7 @@
 import axios from "axios";
 import type {
   Hotel, DashboardSummary, MetricsResponse,
-  AgentRequest, AgentResponse, Review, MaintenanceTicket, Conversation,
+  AgentRequest, AgentResponse, Review, MaintenanceTicket, Conversation, ConversationItem,
 } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -75,7 +75,7 @@ export async function reviewAction(reviewId: string, action: string, editedRespo
 
 // ── Conversations ────────────────────────────────────────────
 
-export async function fetchConversations(hotelId: string): Promise<Conversation[]> {
+export async function fetchConversations(hotelId: string): Promise<ConversationItem[]> {
   try {
     const res = await api.get(`/dashboard/conversations/${hotelId}`);
     return res.data.conversations || [];

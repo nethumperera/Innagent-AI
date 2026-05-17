@@ -38,6 +38,15 @@ export default function GuestsPage() {
       } else {
         setLoadingConv(false);
       }
+    }).catch((err) => {
+      console.error("Failed to fetch hotels:", err);
+      // Fallback to a dummy hotel so the UI doesn't hang
+      const fallback: Hotel = {
+        id: "error", name: "Connection Error (Check API URL)", slug: "error", total_rooms: 0, minimum_rate_lkr: 0, amenities: [], is_active: true, created_at: "", updated_at: ""
+      };
+      setHotels([fallback]);
+      setSelectedHotel(fallback);
+      setLoadingConv(false);
     });
   }, []);
 
